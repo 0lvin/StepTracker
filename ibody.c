@@ -17,11 +17,15 @@ unsigned char check_code(const char* buffer, size_t size) {
     return crc & 0xff;
 }
 
-void dump_buffer(char* buffer) {
+void dump_hex(char* buffer, size_t size) {
     int i = 0;
-    for(i=0; i < PACKET_SIZE; i++) {
+    for(i=0; i < size; i++) {
 	printf(" %02x", buffer[i] & 0xff);
     }
+}
+
+void dump_buffer(char* buffer) {
+    dump_hex(buffer, PACKET_SIZE);
     char code = check_code(buffer, PACKET_SIZE-1) & 0xff;
     char current = buffer[PACKET_SIZE-1] & 0xff;
     if (current  != code) {
@@ -36,7 +40,7 @@ int write_buffer(int tty, char* out_buffer, char* in_buffer){
     if (out_buffer) {
 	memcpy(buffer, out_buffer, PACKET_SIZE-1);
 	buffer[PACKET_SIZE-1] = check_code(buffer, PACKET_SIZE-1);
-	printf("->\n");
+	printf("->");
 	dump_buffer(buffer);
 	res = write(tty, buffer, PACKET_SIZE);
 	if (res < 0) {
@@ -45,7 +49,7 @@ int write_buffer(int tty, char* out_buffer, char* in_buffer){
 	}
     }
     if (in_buffer) {
-	printf("<-\n");
+	printf("<-");
 	memset(buffer, 0, PACKET_SIZE);
 	int pos = 0;
 	while (pos < PACKET_SIZE) {
@@ -130,10 +134,10 @@ void set_time(char* buffer) {
  * 5a011507 16081455 00000000 00000000 fe
  * 5a011507 16081510 00000000 00000000 ba
  * 5a011507 16081546 00000000 00000000 f0
- * status:
- * 5a420000 00000000 00000000 00000000 9c
  * reset
  * 5a2e0000 00000000 00000000 00000000 88
+ * status:
+ * 5a420000 00000000 00000000 00000000 9c
 */
 int main() {
     int res = 0;
@@ -154,6 +158,10 @@ int main() {
 	printf("Can't write = %d\n", res);
 	return res;
     }
+    printf("-- id will be: ");
+    dump_hex(buffer+0x07, 0x06);
+    printf("\n-- Other values unknown for now.\n");
+
     printf("time:\n");
     set_time(buffer);
     res = write_buffer(tty, buffer, buffer);
