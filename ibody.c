@@ -5,6 +5,7 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#include <time.h>
 #define PACKET_SIZE 17
 
 unsigned char check_code(const char* buffer, size_t size) {
@@ -21,8 +22,9 @@ void dump_buffer(char* buffer) {
     for(i=0; i < PACKET_SIZE; i++) {
 	printf(" %02x", buffer[i] & 0xff);
     }
-    unsigned char code = check_code(buffer, PACKET_SIZE-1) & 0xff;
-    if (buffer[PACKET_SIZE-1] & 0xff == code) {
+    char code = check_code(buffer, PACKET_SIZE-1) & 0xff;
+    char current = buffer[PACKET_SIZE-1] & 0xff;
+    if (current  != code) {
 	printf(" valid check code: %02x\n", code);
     }
     printf("\n");
@@ -79,6 +81,32 @@ void set_speed(int tty) {
     tcsetattr(tty, TCSANOW,&tio);
 }
 
+unsigned char convert_time(unsigned char orig) {
+    return ((orig % 0xa) & 0x0f)  + (((orig / 0xa) << 4) & 0xf0);
+}
+
+void set_time(char* buffer) {
+    struct tm time_struct;
+    time_t curr_time;
+    time(&curr_time);
+    if (((time_t) -1) == curr_time) {
+	printf("Can't get time\n");
+	return;
+    }
+    localtime_r(&curr_time, &time_struct);
+    memset(buffer, 0, PACKET_SIZE-1);
+    buffer[0x00] = 0x5a;
+    buffer[0x01] = 0x01;
+    //The number of years since 1900.
+    buffer[0x02] = convert_time(time_struct.tm_year - 100);
+    //The number of months since January, in the range 0 to 11.
+    buffer[0x03] = convert_time(time_struct.tm_mon + 1);
+    buffer[0x04] = convert_time(time_struct.tm_mday);
+    buffer[0x05] = convert_time(time_struct.tm_hour);
+    buffer[0x06] = convert_time(time_struct.tm_min);
+    buffer[0x07] = convert_time(time_struct.tm_sec);
+}
+
 /*
  * time:
  * 5a011507 11170905 00000000 00000000 ad
@@ -93,12 +121,8 @@ void set_speed(int tty) {
 */
 int main() {
     char tracker_id[] = {
+	//00    01    02    03    04    05    06    07
 	0x5a, 0x42, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    };
-
-    char time_set_17_09_05[] = {
-	0x5a, 0x01, 0x15, 0x07, 0x11, 0x17, 0x12, 0x17,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     };
     int res = 0;
@@ -119,7 +143,9 @@ int main() {
 	return res;
     }
     printf("time:\n");
-    res = write_buffer(tty, time_set_17_09_05, buffer);
+    //reuse buffer as temporary time struct
+    set_time(buffer);
+    res = write_buffer(tty, buffer, buffer);
     if (res < PACKET_SIZE) {
 	printf("Can't write = %d\n", res);
 	return res;
