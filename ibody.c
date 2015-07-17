@@ -43,7 +43,6 @@ int write_buffer(int tty, char* out_buffer, char* in_buffer){
 	    printf("Can't write = %d\n", res);
 	    return res;
 	}
-	//sleep(1);
     }
     if (in_buffer) {
 	printf("<-\n");
@@ -58,6 +57,9 @@ int write_buffer(int tty, char* out_buffer, char* in_buffer){
 	    pos += res;
 	}
 	dump_buffer(buffer);
+	if (out_buffer && memcmp(out_buffer, buffer, 2) != 0) {
+	    printf("Different operations\n");
+	}
 	memcpy(in_buffer, buffer, PACKET_SIZE);
 	return pos;
     }
@@ -83,6 +85,18 @@ void set_speed(int tty) {
 
 unsigned char convert_time(unsigned char orig) {
     return ((orig % 0xa) & 0x0f)  + (((orig / 0xa) << 4) & 0xf0);
+}
+
+void set_status(char* buffer) {
+    memset(buffer, 0, PACKET_SIZE-1);
+    buffer[0x00] = 0x5a;
+    buffer[0x01] = 0x42;
+}
+
+void set_reset(char* buffer) {
+    memset(buffer, 0, PACKET_SIZE-1);
+    buffer[0x00] = 0x5a;
+    buffer[0x01] = 0x2e;
 }
 
 void set_time(char* buffer) {
@@ -118,13 +132,10 @@ void set_time(char* buffer) {
  * 5a011507 16081546 00000000 00000000 f0
  * status:
  * 5a420000 00000000 00000000 00000000 9c
+ * reset
+ * 5a2e0000 00000000 00000000 00000000 88
 */
 int main() {
-    char tracker_id[] = {
-	//00    01    02    03    04    05    06    07
-	0x5a, 0x42, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    };
     int res = 0;
 
     int tty = open("/dev/ttyUSB0", O_RDWR);
@@ -137,14 +148,32 @@ int main() {
 
     char buffer[PACKET_SIZE];
     printf("tracker id:\n");
-    res = write_buffer(tty, tracker_id, buffer);
+    set_status(buffer);
+    res = write_buffer(tty, buffer, buffer);
     if (res < PACKET_SIZE) {
 	printf("Can't write = %d\n", res);
 	return res;
     }
     printf("time:\n");
-    //reuse buffer as temporary time struct
     set_time(buffer);
+    res = write_buffer(tty, buffer, buffer);
+    if (res < PACKET_SIZE) {
+	printf("Can't write = %d\n", res);
+	return res;
+    }
+
+    printf("reset:\n");
+    set_reset(buffer);
+    res = write_buffer(tty, buffer, NULL);
+    if (res < PACKET_SIZE) {
+	printf("Can't write = %d\n", res);
+	return res;
+    }
+
+    // wait for wake up
+    sleep(1);
+    printf("tracker id:\n");
+    set_status(buffer);
     res = write_buffer(tty, buffer, buffer);
     if (res < PACKET_SIZE) {
 	printf("Can't write = %d\n", res);
