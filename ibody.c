@@ -1,3 +1,20 @@
+/*
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ * MA 02110-1301, USA.
+ *
+ */
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -104,7 +121,7 @@ void set_log_start(char* buffer) {
     buffer[0x01] = 0x46;
 }
 
-void set_dump_start(char* buffer, char day_back) {
+void set_dump_start(char* buffer, unsigned char day_back) {
     memset(buffer, 0, PACKET_SIZE-1);
     buffer[0x00] = 0x5a;
     buffer[0x01] = 0x43;
@@ -113,6 +130,13 @@ void set_dump_start(char* buffer, char day_back) {
      * 1 - yesterday
      */
     buffer[0x02] = day_back;
+}
+
+void set_unknow_operation(char* buffer, unsigned char pos) {
+    memset(buffer, 0, PACKET_SIZE-1);
+    buffer[0x00] = 0x5a;
+    buffer[0x01] = 0x04;
+    buffer[0x02] = pos;
 }
 
 void set_reset(char* buffer) {
@@ -144,7 +168,7 @@ void set_time(char* buffer) {
 }
 
 /*
- * time -> 1:
+ * time - 1 record responce
  * 5a011507 11170905 00000000 00000000 ad
  * 5a011507 11170909 00000000 00000000 b1
  * 5a011507 11171217 00000000 00000000 c8
@@ -152,15 +176,15 @@ void set_time(char* buffer) {
  * 5a011507 16081455 00000000 00000000 fe
  * 5a011507 16081510 00000000 00000000 ba
  * 5a011507 16081546 00000000 00000000 f0
- * reset -> 0:
+ * reset - no responce
  * 5a2e0000 00000000 00000000 00000000 88
- * status -> 1:
+ * status  - 1 record responce
  * 5a420000 00000000 00000000 00000000 9c
- * run always before 43? -> 1:
+ * log size - 1 record responce
  * 5a460000 00000000 00000000 00000000 a0
- * run sometime after 43? -> 1:
+ * some log - 1 record responce
  * 5a040100 00000000 00000000 00000000 5f
- * run always after 46? -> 96:
+ * some log with 15 minutes intervals 1 or 96 responces:
  * 5a430000 00000000 00000000 00000000 9d
 */
 int main() {
@@ -182,7 +206,7 @@ int main() {
 	printf("Can't write = %d\n", res);
 	return res;
     }
-    printf("-- id will be: ");
+    printf("-- id will be:");
     dump_hex(buffer+0x07, 0x06);
     printf("\n-- Other values unknown for now.\n");
 
@@ -193,36 +217,58 @@ int main() {
 	printf("Can't write = %d\n", res);
 	return res;
     }
-    printf("-- values unknown for now.\n");
-    printf("dump?:\n");
-    set_dump_start(buffer, 1);
-    res = write_buffer(tty, buffer, NULL);
-    if (res < PACKET_SIZE) {
-	printf("Can't write = %d\n", res);
-	return res;
-    }
-    int k;
-    for (k=0; k < 96; k ++) {
-	res = write_buffer(tty, NULL, buffer);
+    unsigned char days_in_log = buffer[0x05];
+    printf("-- days in log will be: %d\n", days_in_log);
+    printf("\n-- Other values unknown for now.\n");
+    int pos = 1;
+    for(pos=0x00; pos <= days_in_log; pos ++) {
+	printf("dump for %d days back:\n", pos);
+	set_dump_start(buffer, pos);
+	res = write_buffer(tty, buffer, NULL);
 	if (res < PACKET_SIZE) {
 	    printf("Can't write = %d\n", res);
 	    return res;
-	} else {
-	    if (buffer[0] != 0x5a || buffer[1] != 0x43) {
-		printf("-- wrong opperation code\n");
+	}
+	int k;
+	for (k=0; k < 96; k ++) {
+	    res = write_buffer(tty, NULL, buffer);
+	    if (res < PACKET_SIZE) {
+		printf("Can't write = %d\n", res);
+		return res;
+	    } else {
+		if (buffer[0] != 0x5a || buffer[1] != 0x43) {
+		    printf("-- wrong opperation code\n");
+		}
+		if ((unsigned char)buffer[2] == (unsigned char)0xf0) {
+		    char year = buffer[3];
+		    char month = buffer[4];
+		    char day = buffer[5];
+		    char hour = buffer[6] / 4;
+		    char minutes = (buffer[6] * 15) % 60;
+		    printf("-- %02x.%02x.%02x %02d:%02d :>", year, month, day, hour, minutes);
+		    dump_hex(buffer+0x07, 0x07);
+		    printf("\n");
+		} else if (buffer[2] == 0x00) {
+		    if ((unsigned char)buffer[3] == (unsigned char)0xff) {
+			printf("-- no data for such day\n");
+			break;
+		    } else if (buffer[3] != 0x00) {
+			printf("-- unknow value\n");
+		    }
+		} else {
+		    printf("-- unknow value\n");
+		}
 	    }
-	    if ((unsigned char)buffer[2] == (unsigned char)0xf0) {
-		char year = buffer[3];
-		char month = buffer[4];
-		char day = buffer[5];
-		char hour = buffer[6] / 4;
-		char minutes = (buffer[6] * 15) % 60;
-		printf("-- %02x.%02x.%02x %02d:%02d :>", year, month, day, hour, minutes);
-		dump_hex(buffer+0x07, 0x07);
-		printf("\n");
-	    } else if (buffer[2] != 0x00) {
-		printf("-- unknow value\n");
-	    }
+	}
+    }
+
+    for(pos=0x01; pos<=0x1c; pos ++) {
+	printf("unknow operation position %d:\n", pos);
+	set_unknow_operation(buffer, pos);
+	res = write_buffer(tty, buffer, buffer);
+	if (res < PACKET_SIZE) {
+	    printf("Can't write = %d\n", res);
+	    return res;
 	}
     }
 
