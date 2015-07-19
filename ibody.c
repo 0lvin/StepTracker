@@ -220,8 +220,8 @@ int main() {
     unsigned char days_in_log = buffer[0x05];
     printf("-- days in log will be: %d\n", days_in_log);
     printf("\n-- Other values unknown for now.\n");
-    int pos = 1;
-    for(pos=0x00; pos <= days_in_log; pos ++) {
+    int pos = 0;
+    for(pos=0; pos < days_in_log; pos ++) {
 	printf("dump for %d days back:\n", pos);
 	set_dump_start(buffer, pos);
 	res = write_buffer(tty, buffer, NULL);
@@ -245,8 +245,21 @@ int main() {
 		    char day = buffer[5];
 		    char hour = buffer[6] / 4;
 		    char minutes = (buffer[6] * 15) % 60;
-		    printf("-- %02x.%02x.%02x %02d:%02d :>", year, month, day, hour, minutes);
-		    dump_hex(buffer+0x07, 0x07);
+		    int steps = (unsigned char)buffer[10];
+		    steps += ((unsigned char)buffer[11]) << 8;
+		    printf(
+			"-- %02x.%02x.%02x %02d:%02d :>%5d steps:",
+			year, month, day, hour, minutes, steps
+		    );
+		    if ((unsigned char)buffer[7] == (unsigned char)0xff) {
+			printf("sleep ");
+		    } else if ((unsigned char)buffer[7] == (unsigned char)0x00) {
+			printf("wake  ");
+		    } else {
+			printf("s/w?  ");
+		    }
+		    dump_hex(buffer+0x08, 0x02);
+		    dump_hex(buffer+0x0c, 0x04);
 		    printf("\n");
 		} else if (buffer[2] == 0x00) {
 		    if ((unsigned char)buffer[3] == (unsigned char)0xff) {
@@ -262,6 +275,8 @@ int main() {
 	}
     }
 
+    //already tested, use only undestructive operation
+    return 0;
     for(pos=0x01; pos<=0x1c; pos ++) {
 	printf("unknow operation position %d:\n", pos);
 	set_unknow_operation(buffer, pos);
@@ -272,8 +287,6 @@ int main() {
 	}
     }
 
-    //already tested, use only undestructive operation
-    return 0;
     printf("time:\n");
     set_time(buffer);
     res = write_buffer(tty, buffer, buffer);
