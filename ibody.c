@@ -132,11 +132,15 @@ void set_dump_start(char* buffer, unsigned char day_back) {
     buffer[0x02] = day_back;
 }
 
-void set_unknow_operation(char* buffer, unsigned char pos) {
+void set_cleanup_day(char* buffer, unsigned char day_back) {
     memset(buffer, 0, PACKET_SIZE-1);
     buffer[0x00] = 0x5a;
     buffer[0x01] = 0x04;
-    buffer[0x02] = pos;
+    /*
+     * 0 - today
+     * 1 - yesterday
+     */
+    buffer[0x02] = day_back;
 }
 
 void set_reset(char* buffer) {
@@ -167,26 +171,6 @@ void set_time(char* buffer) {
     buffer[0x07] = convert_time(time_struct.tm_sec);
 }
 
-/*
- * time - 1 record responce
- * 5a011507 11170905 00000000 00000000 ad
- * 5a011507 11170909 00000000 00000000 b1
- * 5a011507 11171217 00000000 00000000 c8
- * 5a011507 11171226 00000000 00000000 d7
- * 5a011507 16081455 00000000 00000000 fe
- * 5a011507 16081510 00000000 00000000 ba
- * 5a011507 16081546 00000000 00000000 f0
- * reset - no responce
- * 5a2e0000 00000000 00000000 00000000 88
- * status  - 1 record responce
- * 5a420000 00000000 00000000 00000000 9c
- * log size - 1 record responce
- * 5a460000 00000000 00000000 00000000 a0
- * some log - 1 record responce
- * 5a040100 00000000 00000000 00000000 5f
- * some log with 15 minutes intervals 1 or 96 responces:
- * 5a430000 00000000 00000000 00000000 9d
-*/
 int main() {
     int res = 0;
 
@@ -217,74 +201,80 @@ int main() {
 	printf("Can't write = %d\n", res);
 	return res;
     }
-    unsigned char days_in_log = buffer[0x05];
-    printf("-- days in log will be: %d\n", days_in_log);
-    printf("\n-- Other values unknown for now.\n");
+    unsigned int days_in_log = (
+	((unsigned char)buffer[0x02] << 24) +
+	((unsigned char)buffer[0x03] << 16) +
+	((unsigned char)buffer[0x04] << 8) +
+	(unsigned char)buffer[0x05]
+    );
+    printf("-- days in log will be: %08x\n", days_in_log);
     int pos = 0;
-    for(pos=0; pos < days_in_log; pos ++) {
-	printf("dump for %d days back:\n", pos);
-	set_dump_start(buffer, pos);
-	res = write_buffer(tty, buffer, NULL);
-	if (res < PACKET_SIZE) {
-	    printf("Can't write = %d\n", res);
-	    return res;
-	}
-	int k;
-	for (k=0; k < 96; k ++) {
-	    res = write_buffer(tty, NULL, buffer);
+    unsigned int check = days_in_log;
+    for(pos=0; pos < 32; pos ++) {
+	if (check&1) {
+	    printf("dump for %d days back:\n", pos);
+	    set_dump_start(buffer, pos);
+	    res = write_buffer(tty, buffer, NULL);
 	    if (res < PACKET_SIZE) {
 		printf("Can't write = %d\n", res);
 		return res;
-	    } else {
-		if (buffer[0] != 0x5a || buffer[1] != 0x43) {
-		    printf("-- wrong opperation code\n");
-		}
-		if ((unsigned char)buffer[2] == (unsigned char)0xf0) {
-		    char year = buffer[3];
-		    char month = buffer[4];
-		    char day = buffer[5];
-		    char hour = buffer[6] / 4;
-		    char minutes = (buffer[6] * 15) % 60;
-		    int steps = (unsigned char)buffer[10];
-		    steps += ((unsigned char)buffer[11]) << 8;
-		    printf(
-			"-- %02x.%02x.%02x %02d:%02d :>%5d steps:",
-			year, month, day, hour, minutes, steps
-		    );
-		    if ((unsigned char)buffer[7] == (unsigned char)0xff) {
-			printf("sleep ");
-		    } else if ((unsigned char)buffer[7] == (unsigned char)0x00) {
-			printf("wake  ");
-		    } else {
-			printf("s/w?  ");
+	    }
+	    int k;
+	    for (k=0; k < 96; k ++) {
+		res = write_buffer(tty, NULL, buffer);
+		if (res < PACKET_SIZE) {
+		    printf("Can't write = %d\n", res);
+		    return res;
+		} else {
+		    if (buffer[0] != 0x5a || buffer[1] != 0x43) {
+			printf("-- wrong opperation code\n");
 		    }
-		    dump_hex(buffer+0x08, 0x02);
-		    dump_hex(buffer+0x0c, 0x04);
-		    printf("\n");
-		} else if (buffer[2] == 0x00) {
-		    if ((unsigned char)buffer[3] == (unsigned char)0xff) {
-			printf("-- no data for such day\n");
-			break;
-		    } else if (buffer[3] != 0x00) {
+		    if ((unsigned char)buffer[2] == (unsigned char)0xf0) {
+			char year = buffer[3];
+			char month = buffer[4];
+			char day = buffer[5];
+			char hour = buffer[6] / 4;
+			char minutes = (buffer[6] * 15) % 60;
+			int steps = (unsigned char)buffer[10];
+			steps += ((unsigned char)buffer[11]) << 8;
+			printf(
+			    "-- %02x.%02x.%02x %02d:%02d :>%5d steps:",
+			    year, month, day, hour, minutes, steps
+			);
+			if ((unsigned char)buffer[7] == (unsigned char)0xff) {
+			    printf("sleep ");
+			} else if ((unsigned char)buffer[7] == (unsigned char)0x00) {
+			    printf("wake  ");
+			} else {
+			    printf("s/w?  ");
+			}
+			dump_hex(buffer+0x08, 0x02);
+			dump_hex(buffer+0x0c, 0x04);
+			printf("\n");
+		    } else if (buffer[2] == 0x00) {
+			if ((unsigned char)buffer[3] == (unsigned char)0xff) {
+			    printf("-- no data for such day\n");
+			    break;
+			} else if (buffer[3] != 0x00) {
+			    printf("-- unknow value\n");
+			}
+		    } else {
 			printf("-- unknow value\n");
 		    }
-		} else {
-		    printf("-- unknow value\n");
 		}
 	    }
 	}
+	check = check >> 1;
     }
 
     //already tested, use only undestructive operation
     return 0;
-    for(pos=0x01; pos<=0x1c; pos ++) {
-	printf("unknow operation position %d:\n", pos);
-	set_unknow_operation(buffer, pos);
-	res = write_buffer(tty, buffer, buffer);
-	if (res < PACKET_SIZE) {
-	    printf("Can't write = %d\n", res);
-	    return res;
-	}
+    printf("cleanup 2 days back\n");
+    set_cleanup_day(buffer, 2);
+    res = write_buffer(tty, buffer, buffer);
+    if (res < PACKET_SIZE) {
+	printf("Can't write = %d\n", res);
+	return res;
     }
 
     printf("time:\n");

@@ -20,13 +20,13 @@ Log size:
     |     empty in general
     operation code
 
-<- 5a 46|00 00 00|03|00 00 00 00 00 00 00 00 00 00|a3
-<- 5a 46|7f ff ff|ff|00 00 00 00 00 00 00 00 00 00|a3
-    ^     ^        ^  ^                            ^
-    |     |        |  |                            hash sum
-    |     |        |  unknow
-    |     |        days log size, can be < 0 (if !0 - requested 0x43 operation)
-    |     unknow (if !0 - requested 0x04 operation)
+<- 5a 46|00 00 00 03|00 00 00 00 00 00 00 00 00 00|a3
+<- 5a 46|7f ff ff ff|00 00 00 00 00 00 00 00 00 00|a3
+    ^     ^           ^                            ^
+    |     |           |                            hash sum
+    |     |           unknow
+    |     days bit mask, if more that 28 days, need to do cleanup,
+    |     need retest - sure only for 1 byte
     operation code
 
 Day dump(run's after 0x46):
@@ -36,10 +36,11 @@ Day dump(run's after 0x46):
     |     |   empty in general
     |     days back, 0 - today, 1 yesterday
     operation code
-<- 5a 43|f0|15|07|18|39|00 00 00 00 00 00 00 00 00|fa
-    ^     ^  ^  ^  ^  ^  ^                         ^
-    |     |  |  |  |  |  |                         hash sum
-    |     |  |  |  |  |  some useful data?
+<- 5a 43|f0|15|07|18|39|00|00 00 00 00 00 00 00 00|fa
+    ^     ^  ^  ^  ^  ^  ^  ^                      ^
+    |     |  |  |  |  |  |  |                      hash sum
+    |     |  |  |  |  |  |  some useful data?
+    |     |  |  |  |  |  0 - wake, 0xff - sleep
     |     |  |  |  |  15 min interval number from midnight (96 records for day)
     |     |  |  |  day
     |     |  |  month
@@ -51,15 +52,14 @@ Day dump(run's after 0x46):
     |     |  |  |                                  hash sum
     |     |  |  in general empty
     |     for 00ff - no data for day
-    |
     operation code
 
-Fully unknow valuesDay dump(run's after 0x43)::
+Clean up day in logs:
 -> 5a 04|01|00 00 00 00 00 00 00 00 00 00 00 00 00|5f
     ^     ^  ^                                     ^
     |     |  |                                     hash sum
     |     |   empty in general
-    |     in genaral value from 0x01 to 0x1c(28 dex)
+    |     days back, 0 - today, 1 yesterday
     operation code
 <- 5a 04|00 00 00 00 00 00 00 00 00 00 00 00 00 00|5e
     ^     ^                                        ^
@@ -107,7 +107,7 @@ Request examples:
  * 5a420000 00000000 00000000 00000000 9c
  * log size - 1 record responce
  * 5a460000 00000000 00000000 00000000 a0
- * some log - 1 record responce
+ * cleanup one day - 1 record responce
  * 5a040100 00000000 00000000 00000000 5f
  * some log with 15 minutes intervals 1 or 96 responces:
  * 5a430000 00000000 00000000 00000000 9d
