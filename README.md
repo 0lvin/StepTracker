@@ -1,6 +1,8 @@
 # Operations:
 
 ## Status:
+
+```
 -> 5a 42|00 00 00 00 00 00 00 00 00 00 00 00 00 00|9c
     ^     ^                                        ^
     |     |                                        hash sum
@@ -12,8 +14,11 @@
     |     |              tracker id
     |     unknow
     operation code
+```
 
 ## Log size:
+
+```
 -> 5a 46|00 00 00 00 00 00 00 00 00 00 00 00 00 00|a0
     ^     ^                                        ^
     |     |                                        hash sum
@@ -28,8 +33,11 @@
     |     days bit mask, if more that 28 days, need to do cleanup,
     |     need retest - sure only for 1 byte
     operation code
+```
 
 ## Day dump(run's after 0x46):
+
+```
 -> 5a 43|00|00 00 00 00 00 00 00 00 00 00 00 00 00|9d
     ^     ^  ^                                     ^
     |     |  |                                     hash sum
@@ -55,8 +63,11 @@
     |     |  |  in general empty
     |     for 00ff - no data for day
     operation code
+```
 
 ## Clean up day in logs:
+
+```
 -> 5a 04|01|00 00 00 00 00 00 00 00 00 00 00 00 00|5f
     ^     ^  ^                                     ^
     |     |  |                                     hash sum
@@ -68,8 +79,11 @@
     |     |                                        hash sum
     |     in general empty
     operation code
+```
 
 ## Set time:
+
+```
 -> 5a 01|15|07|11|17|09|05|00 00 00 00 00 00 00 00|ad
     ^     ^  ^  ^  ^  ^  ^  ^                      ^
     |     |  |  |  |  |  |  empty in general
@@ -86,13 +100,17 @@
     |     |                                        hash sum
     |     empty in general
     operation code
+```
 
 ## Reset (never returns result):
+
+```
 -> 5a 2e|00 00 00 00 00 00 00 00 00 00 00 00 00 00|88
     ^     ^                                        ^
     |     |                                        hash sum
     |     empty in general
     operation code
+```
 
 # Request examples:
  * time - 1 record responce
