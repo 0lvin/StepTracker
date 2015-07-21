@@ -235,21 +235,22 @@ int main() {
 			char day = buffer[5];
 			char hour = buffer[6] / 4;
 			char minutes = (buffer[6] * 15) % 60;
-			int steps = (unsigned char)buffer[10];
-			steps += ((unsigned char)buffer[11]) << 8;
 			printf(
-			    "-- %02x.%02x.%02x %02d:%02d :>%5d steps:",
-			    year, month, day, hour, minutes, steps
+			    "-- %02x.%02x.%02x %02d:%02d :>",
+			    year, month, day, hour, minutes
 			);
 			if ((unsigned char)buffer[7] == (unsigned char)0xff) {
-			    printf("sleep ");
+			    printf(" sleep");
+			    dump_hex(buffer+0x08, 0x08);
 			} else if ((unsigned char)buffer[7] == (unsigned char)0x00) {
-			    printf("wake  ");
+			    int steps = (unsigned char)buffer[10];
+			    steps += ((unsigned char)buffer[11]) << 8;
+			    printf("%5d steps:", steps);
+			    dump_hex(buffer+0x08, 0x02);
+			    dump_hex(buffer+0x0c, 0x04);
 			} else {
 			    printf("s/w?  ");
 			}
-			dump_hex(buffer+0x08, 0x02);
-			dump_hex(buffer+0x0c, 0x04);
 			printf("\n");
 		    } else if (buffer[2] == 0x00) {
 			if ((unsigned char)buffer[3] == (unsigned char)0xff) {

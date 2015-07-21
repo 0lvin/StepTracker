@@ -1,6 +1,6 @@
-Operations:
+# Operations:
 
-Status:
+## Status:
 -> 5a 42|00 00 00 00 00 00 00 00 00 00 00 00 00 00|9c
     ^     ^                                        ^
     |     |                                        hash sum
@@ -13,7 +13,7 @@ Status:
     |     unknow
     operation code
 
-Log size:
+## Log size:
 -> 5a 46|00 00 00 00 00 00 00 00 00 00 00 00 00 00|a0
     ^     ^                                        ^
     |     |                                        hash sum
@@ -29,16 +29,18 @@ Log size:
     |     need retest - sure only for 1 byte
     operation code
 
-Day dump(run's after 0x46):
+## Day dump(run's after 0x46):
 -> 5a 43|00|00 00 00 00 00 00 00 00 00 00 00 00 00|9d
     ^     ^  ^                                     ^
     |     |  |                                     hash sum
     |     |   empty in general
     |     days back, 0 - today, 1 yesterday
     operation code
-<- 5a 43|f0|15|07|18|39|00|00 00 00 00 00 00 00 00|fa
-    ^     ^  ^  ^  ^  ^  ^  ^                      ^
-    |     |  |  |  |  |  |  |                      hash sum
+<- 5a 43|f0|15|07|18|39|00|00 00|00 00|00 00 00 00|fa
+    ^     ^  ^  ^  ^  ^  ^  ^     ^     ^          ^
+    |     |  |  |  |  |  |  |     |     |         hash sum
+    |     |  |  |  |  |  |  |     |     some useful data?
+    |     |  |  |  |  |  |  |     count steps if "wake"
     |     |  |  |  |  |  |  some useful data?
     |     |  |  |  |  |  0 - wake, 0xff - sleep
     |     |  |  |  |  15 min interval number from midnight (96 records for day)
@@ -54,7 +56,7 @@ Day dump(run's after 0x46):
     |     for 00ff - no data for day
     operation code
 
-Clean up day in logs:
+## Clean up day in logs:
 -> 5a 04|01|00 00 00 00 00 00 00 00 00 00 00 00 00|5f
     ^     ^  ^                                     ^
     |     |  |                                     hash sum
@@ -67,7 +69,7 @@ Clean up day in logs:
     |     in general empty
     operation code
 
-Set time:
+## Set time:
 -> 5a 01|15|07|11|17|09|05|00 00 00 00 00 00 00 00|ad
     ^     ^  ^  ^  ^  ^  ^  ^                      ^
     |     |  |  |  |  |  |  empty in general
@@ -85,14 +87,14 @@ Set time:
     |     empty in general
     operation code
 
-Reset (never returns result):
+## Reset (never returns result):
 -> 5a 2e|00 00 00 00 00 00 00 00 00 00 00 00 00 00|88
     ^     ^                                        ^
     |     |                                        hash sum
     |     empty in general
     operation code
 
-Request examples:
+# Request examples:
  * time - 1 record responce
  * 5a011507 11170905 00000000 00000000 ad
  * 5a011507 11170909 00000000 00000000 b1
@@ -111,4 +113,3 @@ Request examples:
  * 5a040100 00000000 00000000 00000000 5f
  * some log with 15 minutes intervals 1 or 96 responces:
  * 5a430000 00000000 00000000 00000000 9d
-
