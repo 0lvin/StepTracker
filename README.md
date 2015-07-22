@@ -1,3 +1,5 @@
+Utility for dump ibody tracker state.
+
 # Operations:
 
 ## Status:
@@ -131,3 +133,10 @@
  * 5a040100 00000000 00000000 00000000 5f
  * some log with 15 minutes intervals 1 or 96 responces:
  * 5a430000 00000000 00000000 00000000 9d
+
+# ToDo:
+ * undestand bytes before tracker id (5 bytes)
+ * undestand bytes after sleep mark (8 bytes)
+ * undestand bytes after wake mark (2 bytes) and after steps count(4 bytes)
+ * implementation code and investigation place of kalories and distance for wake
+ * implementation code and investigation place of deep, light sleep and activity for sleep state
