@@ -46,12 +46,13 @@ Utility for dump ibody tracker state.
     |     |   empty in general
     |     days back, 0 - today, 1 yesterday
     operation code
-<- 5a 43|f0|15|07|18|39|00|00 00|00 00|00 00 00 00|fa
-    ^     ^  ^  ^  ^  ^  ^  ^     ^     ^          ^
-    |     |  |  |  |  |  |  |     |     |         hash sum
-    |     |  |  |  |  |  |  |     |     some useful data?
+<- 5a 43|f0|15|07|18|39|00|00 00|00 00|00 00|00 00|fa
+    ^     ^  ^  ^  ^  ^  ^  ^     ^     ^    ^     ^
+    |     |  |  |  |  |  |  |     |     |    |    hash sum
+    |     |  |  |  |  |  |  |     |     |    some useful data?
+    |     |  |  |  |  |  |  |     |     m, distance if "wake"
     |     |  |  |  |  |  |  |     count steps if "wake"
-    |     |  |  |  |  |  |  some useful data?
+    |     |  |  |  |  |  |  kkal, energy if "wake"
     |     |  |  |  |  |  0 - wake, 0xff - sleep
     |     |  |  |  |  15 min interval number from midnight (96 records for day)
     |     |  |  |  day
@@ -137,6 +138,4 @@ Utility for dump ibody tracker state.
 # ToDo:
  * undestand bytes before tracker id (5 bytes)
  * undestand bytes after sleep mark (8 bytes)
- * undestand bytes after wake mark (2 bytes) and after steps count(4 bytes)
- * implementation code and investigation place of kalories and distance for wake
  * implementation code and investigation place of deep, light sleep and activity for sleep state

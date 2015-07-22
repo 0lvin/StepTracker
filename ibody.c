@@ -243,11 +243,18 @@ int main() {
 			    printf(" sleep");
 			    dump_hex(buffer+0x08, 0x08);
 			} else if ((unsigned char)buffer[7] == (unsigned char)0x00) {
+			    int energy = (unsigned char)buffer[8];
+			    energy += ((unsigned char)buffer[9]) << 8;
+
 			    int steps = (unsigned char)buffer[10];
 			    steps += ((unsigned char)buffer[11]) << 8;
-			    printf("%5d steps:", steps);
-			    dump_hex(buffer+0x08, 0x02);
-			    dump_hex(buffer+0x0c, 0x04);
+
+			    int distance = (unsigned char)buffer[12];
+			    distance += ((unsigned char)buffer[13]) << 8;
+			    printf(
+				"%5d steps, %3.3f km, %3.1f kkal",
+				steps, (float)distance/1000, (float)energy/10
+			    );
 			} else {
 			    printf("s/w?  ");
 			}
