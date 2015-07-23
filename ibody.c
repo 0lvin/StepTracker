@@ -235,14 +235,23 @@ int main() {
 			char day = buffer[5];
 			char hour = buffer[6] / 4;
 			char minutes = (buffer[6] * 15) % 60;
-			printf(
-			    "-- %02x.%02x.%02x %02d:%02d :>",
-			    year, month, day, hour, minutes
-			);
+			int seconds = 0;
 			if ((unsigned char)buffer[7] == (unsigned char)0xff) {
-			    printf(" sleep");
-			    dump_hex(buffer+0x08, 0x08);
+			    int second_interval;
+			    for(second_interval=0; second_interval < 8; second_interval ++) {
+				seconds = second_interval * 112.5; // 15 * 60 / 8;
+				printf(
+				    "-- %02x.%02x.%02x %02d:%02d:%02d :>",
+				    year, month, day, hour, (int)(minutes + seconds / 60), ((int)seconds)%60
+				);
+				char sleep_value = buffer[0x08 + second_interval];
+				printf(" sleep %02x \n", sleep_value);
+			    }
 			} else if ((unsigned char)buffer[7] == (unsigned char)0x00) {
+			    printf(
+				"-- %02x.%02x.%02x %02d:%02d:%02d :>",
+				year, month, day, hour, minutes, seconds
+			    );
 			    int energy = (unsigned char)buffer[8];
 			    energy += ((unsigned char)buffer[9]) << 8;
 
@@ -252,13 +261,16 @@ int main() {
 			    int distance = (unsigned char)buffer[12];
 			    distance += ((unsigned char)buffer[13]) << 8;
 			    printf(
-				"%5d steps, %3.3f km, %3.1f kkal",
+				"%5d steps, %3.3f km, %3.1f kkal\n",
 				steps, (float)distance/1000, (float)energy/10
 			    );
 			} else {
-			    printf("s/w?  ");
+			    printf(
+				"-- %02x.%02x.%02x %02d:%02d:%02d :>",
+				year, month, day, hour, minutes, seconds
+			    );
+			    printf("s/w?\n");
 			}
-			printf("\n");
 		    } else if (buffer[2] == 0x00) {
 			if ((unsigned char)buffer[3] == (unsigned char)0xff) {
 			    printf("-- no data for such day\n");
