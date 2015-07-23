@@ -1,5 +1,13 @@
 Utility for dump ibody tracker state.
 
+All this packages received by monitoring usb traffic between tracker and
+windows application. Windows application run inside wm on linux machine.
+And all packages have dumped by read /sys/kernel/debug/usb/usbmon/{bus_id}u.
+For get such bus id can be used output of lsusb.
+
+Note: All information received without any kind of reverse engineering for
+software/hardware products.
+
 # Operations:
 
 ## Status:
