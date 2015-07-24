@@ -212,7 +212,7 @@ int main() {
     unsigned int check = days_in_log;
     for(pos=0; pos < 32; pos ++) {
 	if (check&1) {
-	    printf("dump for %d days back:\n", pos);
+	    printf("-- dump for %d days back:\n", pos);
 	    set_dump_start(buffer, pos);
 	    res = write_buffer(tty, buffer, NULL);
 	    if (res < PACKET_SIZE) {
@@ -220,6 +220,10 @@ int main() {
 		return res;
 	    }
 	    int k;
+	    float sleep_time = 0;
+	    int steps_amount = 0;
+	    int energy_amount = 0;
+	    int full_distance = 0;
 	    for (k=0; k < 96; k ++) {
 		res = write_buffer(tty, NULL, buffer);
 		if (res < PACKET_SIZE) {
@@ -245,25 +249,36 @@ int main() {
 				    year, month, day, hour, (int)(minutes + seconds / 60), ((int)seconds)%60
 				);
 				char sleep_value = buffer[0x08 + second_interval];
-				printf(" sleep %02x \n", sleep_value);
+				char* sleep_type = "deep";
+				if (sleep_value > 10) {
+				    sleep_type = "does not";
+				} else if (sleep_value > 5) {
+				    sleep_type = "light";
+				}
+				if(sleep_value < 10) {
+				    sleep_time += 112.5;
+				}
+				printf(" %s sleep (%02x)\n", sleep_type, sleep_value);
 			    }
 			} else if ((unsigned char)buffer[7] == (unsigned char)0x00) {
-			    printf(
-				"-- %02x.%02x.%02x %02d:%02d:%02d :>",
-				year, month, day, hour, minutes, seconds
-			    );
 			    int energy = (unsigned char)buffer[8];
 			    energy += ((unsigned char)buffer[9]) << 8;
+			    energy_amount += energy;
 
 			    int steps = (unsigned char)buffer[10];
 			    steps += ((unsigned char)buffer[11]) << 8;
+			    steps_amount += steps;
 
 			    int distance = (unsigned char)buffer[12];
 			    distance += ((unsigned char)buffer[13]) << 8;
-			    printf(
-				"%5d steps, %3.3f km, %3.1f kkal\n",
-				steps, (float)distance/1000, (float)energy/10
-			    );
+			    full_distance += distance;
+
+			    if (distance || steps || energy)
+				printf(
+				    "-- %02x.%02x.%02x %02d:%02d:%02d :>%5d steps, %3.3f km, %3.1f kkal\n",
+				    year, month, day, hour, minutes, seconds,
+				    steps, (float)distance/1000, (float)energy/10
+				);
 			} else {
 			    printf(
 				"-- %02x.%02x.%02x %02d:%02d:%02d :>",
@@ -283,6 +298,11 @@ int main() {
 		    }
 		}
 	    }
+	    printf(
+		"++ summary %d days back: %.2fh sleep, %.3f km, %.1f kkal, %d steps\n",
+		pos, sleep_time/3600, (float)full_distance/1000,
+		(float)energy_amount/10,  steps_amount
+	    );
 	}
 	check = check >> 1;
     }

@@ -58,14 +58,25 @@ software/hardware products.
     ^     ^  ^  ^  ^  ^  ^  ^     ^     ^    ^     ^
     |     |  |  |  |  |  |  |     |     |    |    hash sum
     |     |  |  |  |  |  |  |     |     |    some useful data?
-    |     |  |  |  |  |  |  |     |     m, distance if "wake"
-    |     |  |  |  |  |  |  |     count steps if "wake"
-    |     |  |  |  |  |  |  kkal, energy if "wake"
+    |     |  |  |  |  |  |  |     |     m, distance if "wake"(little endian)
+    |     |  |  |  |  |  |  |     count steps if "wake"(little endian)
+    |     |  |  |  |  |  |  kkal, energy if "wake" (little endian)
     |     |  |  |  |  |  0 - wake, 0xff - sleep
     |     |  |  |  |  15 min interval number from midnight (96 records for day)
-    |     |  |  |  day
-    |     |  |  month
-    |     |  year
+    |     |  |  |  day(in bcd format)
+    |     |  |  month(in bcd format)
+    |     |  year(in bcd format)
+    |     exist some data
+    operation code
+<- 5a 43|f0|15|07|22|5d|ff|00 00 00 00 0e 29 11 0d|7c
+    ^     ^  ^  ^  ^  ^  ^  ^                      ^
+    |     |  |  |  |  |  |  |                     hash sum
+    |     |  |  |  |  |  |  one byte for every 112.5 seconds (15 min / 8), if "sleep"
+    |     |  |  |  |  |  0 - wake, 0xff - sleep
+    |     |  |  |  |  15 min interval number from midnight (96 records for day)
+    |     |  |  |  day(in bcd format)
+    |     |  |  month(in bcd format)
+    |     |  year(in bcd format)
     |     exist some data
     operation code
 <- 5a 43|00 ff|00 00 00 00 00 00 00 00 00 00 00 00|9c
@@ -98,12 +109,12 @@ software/hardware products.
 -> 5a 01|15|07|11|17|09|05|00 00 00 00 00 00 00 00|ad
     ^     ^  ^  ^  ^  ^  ^  ^                      ^
     |     |  |  |  |  |  |  empty in general
-    |     |  |  |  |  |  seconds
-    |     |  |  |  |  minutes
-    |     |  |  |  hours
-    |     |  |  days
-    |     |  month
-    |     year
+    |     |  |  |  |  |  seconds(in bcd format)
+    |     |  |  |  |  minutes(in bcd format)
+    |     |  |  |  hour(in bcd format)
+    |     |  |  day(in bcd format)
+    |     |  month(in bcd format)
+    |     year(in bcd format)
     operation code
 
 <- 5a 2e|00 00 00 00 00 00 00 00 00 00 00 00 00 00|88
