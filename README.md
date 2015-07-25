@@ -154,7 +154,20 @@ software/hardware products.
  * some log with 15 minutes intervals 1 or 96 responces:
  * 5a430000 00000000 00000000 00000000 9d
 
+# port setings
+ * 9600 bps, 8n1
+# hash function
+
+```
+unsigned char hash_sum(const char* buffer, size_t size) {
+    unsigned int crc = 0;
+    int i = 0;
+    for (i = 0; i < size; i++) {
+        crc = (crc + buffer[i]) % 0x100;
+    }
+    return crc & 0xff;
+}
+```
+
 # ToDo:
  * undestand bytes before tracker id (5 bytes)
- * undestand bytes after sleep mark (8 bytes)
- * implementation code and investigation place of deep, light sleep and activity for sleep state

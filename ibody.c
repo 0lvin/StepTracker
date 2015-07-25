@@ -171,6 +171,19 @@ void set_time(char* buffer) {
     buffer[0x07] = convert_time(time_struct.tm_sec);
 }
 
+int update_time(int tty){
+    char buffer[PACKET_SIZE];
+    int res;
+    printf("time:\n");
+    set_time(buffer);
+    res = write_buffer(tty, buffer, buffer);
+    if (res < PACKET_SIZE) {
+	printf("Can't write = %d\n", res);
+	return res;
+    }
+    return 0;
+}
+
 int main() {
     int res = 0;
 
@@ -317,13 +330,8 @@ int main() {
 	return res;
     }
 
-    printf("time:\n");
-    set_time(buffer);
-    res = write_buffer(tty, buffer, buffer);
-    if (res < PACKET_SIZE) {
-	printf("Can't write = %d\n", res);
-	return res;
-    }
+    if (update_time(tty))
+	return -1;
 
     printf("reset:\n");
     set_reset(buffer);
