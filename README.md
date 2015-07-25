@@ -156,6 +156,7 @@ software/hardware products.
 
 # port setings
  * 9600 bps, 8n1
+
 # hash function
 
 ```
