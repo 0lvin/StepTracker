@@ -25,6 +25,7 @@
 #include <time.h>
 #define PACKET_SIZE 17
 
+//generate hash from packet for [0x10]
 unsigned char check_code(const char* buffer, size_t size) {
     unsigned int crc = 0;
     int i = 0;
@@ -34,6 +35,7 @@ unsigned char check_code(const char* buffer, size_t size) {
     return crc & 0xff;
 }
 
+// dump number as hex
 void dump_hex(char* buffer, size_t size) {
     int i = 0;
     for(i=0; i < size; i++) {
@@ -41,6 +43,7 @@ void dump_hex(char* buffer, size_t size) {
     }
 }
 
+// dump full package
 void dump_buffer(char* buffer) {
     dump_hex(buffer, PACKET_SIZE);
     char code = check_code(buffer, PACKET_SIZE-1) & 0xff;
@@ -51,9 +54,11 @@ void dump_buffer(char* buffer) {
     printf("\n");
 }
 
+// write out_buffer to tty device, than read package to in_buffer
 int write_buffer(int tty, char* out_buffer, char* in_buffer){
     int res = -1;
     char buffer[PACKET_SIZE];
+    // write only in case when we have out_buffer
     if (out_buffer) {
 	memcpy(buffer, out_buffer, PACKET_SIZE-1);
 	buffer[PACKET_SIZE-1] = check_code(buffer, PACKET_SIZE-1);
@@ -65,6 +70,7 @@ int write_buffer(int tty, char* out_buffer, char* in_buffer){
 	    return res;
 	}
     }
+    // read only in case when we have in_buffer
     if (in_buffer) {
 	printf("<-");
 	memset(buffer, 0, PACKET_SIZE);
@@ -87,7 +93,8 @@ int write_buffer(int tty, char* out_buffer, char* in_buffer){
     return res;
 }
 
-void set_speed(int tty) {
+// set 9600 bps, 8n1
+void set_tty_speed(int tty) {
     struct termios tio;
     memset(&tio,0,sizeof(tio));
     tio.c_iflag=0;
@@ -104,24 +111,28 @@ void set_speed(int tty) {
     tcsetattr(tty, TCSANOW,&tio);
 }
 
-unsigned char convert_time(unsigned char orig) {
+// convert int to bcd format
+unsigned char to_bcd(unsigned char orig) {
     orig = orig % 100;
     return ((orig % 0xa) & 0x0f)  + (((orig / 0xa) << 4) & 0xf0);
 }
 
-void set_status(char* buffer) {
+// fill package as status
+void package_get_device_description(char* buffer) {
     memset(buffer, 0, PACKET_SIZE-1);
     buffer[0x00] = 0x5a;
     buffer[0x01] = 0x42;
 }
 
-void set_log_start(char* buffer) {
+// fill package as get log size
+void package_get_log_size(char* buffer) {
     memset(buffer, 0, PACKET_SIZE-1);
     buffer[0x00] = 0x5a;
     buffer[0x01] = 0x46;
 }
 
-void set_dump_start(char* buffer, unsigned char day_back) {
+// fill package as dump day
+void package_dump_day(char* buffer, unsigned char day_back) {
     memset(buffer, 0, PACKET_SIZE-1);
     buffer[0x00] = 0x5a;
     buffer[0x01] = 0x43;
@@ -132,7 +143,8 @@ void set_dump_start(char* buffer, unsigned char day_back) {
     buffer[0x02] = day_back;
 }
 
-void set_cleanup_day(char* buffer, unsigned char day_back) {
+// fill package as clean up day
+void package_erase_one_day(char* buffer, unsigned char day_back) {
     memset(buffer, 0, PACKET_SIZE-1);
     buffer[0x00] = 0x5a;
     buffer[0x01] = 0x04;
@@ -143,13 +155,15 @@ void set_cleanup_day(char* buffer, unsigned char day_back) {
     buffer[0x02] = day_back;
 }
 
-void set_reset(char* buffer) {
+// fill package as reset/reboot device
+void package_reboot_device(char* buffer) {
     memset(buffer, 0, PACKET_SIZE-1);
     buffer[0x00] = 0x5a;
     buffer[0x01] = 0x2e;
 }
 
-void set_time(char* buffer) {
+// fill package as set current time
+void package_set_device_clock_value(char* buffer) {
     struct tm time_struct;
     time_t curr_time;
     time(&curr_time);
@@ -162,20 +176,21 @@ void set_time(char* buffer) {
     buffer[0x00] = 0x5a;
     buffer[0x01] = 0x01;
     //The number of years since 1900.
-    buffer[0x02] = convert_time(time_struct.tm_year - 100);
+    buffer[0x02] = to_bcd(time_struct.tm_year - 100);
     //The number of months since January, in the range 0 to 11.
-    buffer[0x03] = convert_time(time_struct.tm_mon + 1);
-    buffer[0x04] = convert_time(time_struct.tm_mday);
-    buffer[0x05] = convert_time(time_struct.tm_hour);
-    buffer[0x06] = convert_time(time_struct.tm_min);
-    buffer[0x07] = convert_time(time_struct.tm_sec);
+    buffer[0x03] = to_bcd(time_struct.tm_mon + 1);
+    buffer[0x04] = to_bcd(time_struct.tm_mday);
+    buffer[0x05] = to_bcd(time_struct.tm_hour);
+    buffer[0x06] = to_bcd(time_struct.tm_min);
+    buffer[0x07] = to_bcd(time_struct.tm_sec);
 }
 
+// update device clock value
 int update_time(int tty){
     char buffer[PACKET_SIZE];
     int res;
     printf("time:\n");
-    set_time(buffer);
+    package_set_device_clock_value(buffer);
     res = write_buffer(tty, buffer, buffer);
     if (res < PACKET_SIZE) {
 	printf("Can't write = %d\n", res);
@@ -193,11 +208,11 @@ int main() {
 	return res;
     }
 
-    set_speed(tty);
+    set_tty_speed(tty);
 
     char buffer[PACKET_SIZE];
     printf("tracker id:\n");
-    set_status(buffer);
+    package_get_device_description(buffer);
     res = write_buffer(tty, buffer, buffer);
     if (res < PACKET_SIZE) {
 	printf("Can't write = %d\n", res);
@@ -208,7 +223,7 @@ int main() {
     printf("\n-- Other values unknown for now.\n");
 
     printf("something before dump:\n");
-    set_log_start(buffer);
+    package_get_log_size(buffer);
     res = write_buffer(tty, buffer, buffer);
     if (res < PACKET_SIZE) {
 	printf("Can't write = %d\n", res);
@@ -226,7 +241,7 @@ int main() {
     for(pos=0; pos < 32; pos ++) {
 	if (check&1) {
 	    printf("-- dump for %d days back:\n", pos);
-	    set_dump_start(buffer, pos);
+	    package_dump_day(buffer, pos);
 	    res = write_buffer(tty, buffer, NULL);
 	    if (res < PACKET_SIZE) {
 		printf("Can't write = %d\n", res);
@@ -323,7 +338,7 @@ int main() {
     //already tested, use only undestructive operation
     return 0;
     printf("cleanup 2 days back\n");
-    set_cleanup_day(buffer, 2);
+    package_erase_one_day(buffer, 2);
     res = write_buffer(tty, buffer, buffer);
     if (res < PACKET_SIZE) {
 	printf("Can't write = %d\n", res);
@@ -334,7 +349,7 @@ int main() {
 	return -1;
 
     printf("reset:\n");
-    set_reset(buffer);
+    package_reboot_device(buffer);
     res = write_buffer(tty, buffer, NULL);
     if (res < PACKET_SIZE) {
 	printf("Can't write = %d\n", res);
@@ -344,7 +359,7 @@ int main() {
     // wait for wake up
     sleep(1);
     printf("tracker id:\n");
-    set_status(buffer);
+    package_get_device_description(buffer);
     res = write_buffer(tty, buffer, buffer);
     if (res < PACKET_SIZE) {
 	printf("Can't write = %d\n", res);
