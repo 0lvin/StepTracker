@@ -108,6 +108,7 @@ software/hardware products.
 ```
 -> 5a 01|15|07|11|17|09|05|00 00 00 00 00 00 00 00|ad
     ^     ^  ^  ^  ^  ^  ^  ^                      ^
+    |     |  |  |  |  |  |  |                      hash sum
     |     |  |  |  |  |  |  empty in general
     |     |  |  |  |  |  seconds(in bcd format)
     |     |  |  |  |  minutes(in bcd format)
