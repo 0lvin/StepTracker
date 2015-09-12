@@ -170,7 +170,7 @@ void package_set_device_clock_value(char* buffer) {
     time_t curr_time;
     time(&curr_time);
     if (((time_t) -1) == curr_time) {
-	printf("Can't get time\n");
+	printf("?? Can't get time\n");
 	return;
     }
     localtime_r(&curr_time, &time_struct);
@@ -192,11 +192,11 @@ int get_device_info(int tty) {
     char buffer[PACKET_SIZE];
     int res;
 
-    printf("tracker id:\n");
+    printf("++ tracker id:\n");
     package_get_device_description(buffer);
     res = write_buffer(tty, buffer, buffer);
     if (res < PACKET_SIZE) {
-	printf("?? Can't get device info, wrong package size %d\n", res);
+	printf("?? Can't get device info, package is too short\n");
 	return res;
     }
     printf("-- id will be:");
@@ -209,11 +209,11 @@ int get_device_info(int tty) {
 int update_time(int tty){
     char buffer[PACKET_SIZE];
     int res;
-    printf("time:\n");
+    printf("++ time:\n");
     package_set_device_clock_value(buffer);
     res = write_buffer(tty, buffer, buffer);
     if (res < PACKET_SIZE) {
-	printf("?? Can't update device time, wrong package size %d\n", res);
+	printf("?? Can't update device time, package is too short\n");
 	return res;
     }
     return 0;
@@ -223,11 +223,11 @@ int update_time(int tty){
 unsigned int get_log_size(int tty) {
     char buffer[PACKET_SIZE];
     int res;
-    printf("-- read log size:\n");
+    printf("++ read log size:\n");
     package_get_log_size(buffer);
     res = write_buffer(tty, buffer, buffer);
     if (res < PACKET_SIZE) {
-	printf("Can't write = %d\n", res);
+	printf("?? Can't get log size, package is too short\n");
 	return res;
     }
     unsigned int days_in_log = (
@@ -240,26 +240,50 @@ unsigned int get_log_size(int tty) {
     return days_in_log;
 }
 
+// reboot device
+int device_reboot(int tty) {
+    char buffer[PACKET_SIZE];
+    int res;
+    printf("++ reset:\n");
+    package_reboot_device(buffer);
+    res = write_buffer(tty, buffer, NULL);
+    if (res < PACKET_SIZE) {
+	printf("?? can't reboot device, package is too short\n");
+	return res;
+    }
+    return 0;
+}
+
+
 int main(int argc, char **argv) {
     char *device_name = "/dev/ttyUSB0";
     int c;
     int set_time_flag = 0;
     int get_info_flag = 0;
     int get_log_size_flag = 0;
+    int reboot_flag = 0;
     unsigned int days_in_log = 0;
     opterr = 0;
 
-    while ((c = getopt (argc, argv, "itsd:")) != -1)
+    while ((c = getopt (argc, argv, "itsrd:")) != -1)
 	switch (c) {
+	    // tracker id
 	    case 'i':
 		get_info_flag = 1;
 		break;
+	    // update time
 	    case 't':
 		set_time_flag = 1;
 		break;
+	    // get log size
 	    case 's':
 		get_log_size_flag = 1;
 		break;
+	    // reboot device
+	    case 'r':
+		reboot_flag = 1;
+		break;
+	    // change used device
 	    case 'd':
 		device_name = optarg;
 		break;
@@ -292,14 +316,23 @@ int main(int argc, char **argv) {
 	if (get_device_info(tty))
 	    return -1;
 
+    // reboot device
+    if (reboot_flag) {
+	if (device_reboot(tty))
+	    return -1;
+	sleep(1);
+	if (get_device_info(tty))
+	    return -1;
+    }
+
     // update time
     if (set_time_flag)
 	if (update_time(tty))
 	    return -1;
 
+    // get memory state
     if (get_log_size_flag)
 	days_in_log = get_log_size(tty);
-
     return 0;
 
     int res = 0;
@@ -415,22 +448,5 @@ int main(int argc, char **argv) {
 	return res;
     }
 
-    printf("reset:\n");
-    package_reboot_device(buffer);
-    res = write_buffer(tty, buffer, NULL);
-    if (res < PACKET_SIZE) {
-	printf("Can't write = %d\n", res);
-	return res;
-    }
-
-    // wait for wake up
-    sleep(1);
-    printf("tracker id:\n");
-    package_get_device_description(buffer);
-    res = write_buffer(tty, buffer, buffer);
-    if (res < PACKET_SIZE) {
-	printf("Can't write = %d\n", res);
-	return res;
-    }
     return 0;
 }
