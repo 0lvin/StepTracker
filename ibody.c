@@ -220,8 +220,24 @@ int update_time(int tty){
 }
 
 // get log size as bit mask, return this bit mask, on error return 0
-int get_log_size(int tty) {
-
+unsigned int get_log_size(int tty) {
+    char buffer[PACKET_SIZE];
+    int res;
+    printf("-- read log size:\n");
+    package_get_log_size(buffer);
+    res = write_buffer(tty, buffer, buffer);
+    if (res < PACKET_SIZE) {
+	printf("Can't write = %d\n", res);
+	return res;
+    }
+    unsigned int days_in_log = (
+	((unsigned char)buffer[0x02] << 24) +
+	((unsigned char)buffer[0x03] << 16) +
+	((unsigned char)buffer[0x04] << 8) +
+	(unsigned char)buffer[0x05]
+    );
+    printf("-- days in log will be: %08x\n", days_in_log);
+    return days_in_log;
 }
 
 int main(int argc, char **argv) {
@@ -229,15 +245,20 @@ int main(int argc, char **argv) {
     int c;
     int set_time_flag = 0;
     int get_info_flag = 0;
+    int get_log_size_flag = 0;
+    unsigned int days_in_log = 0;
     opterr = 0;
 
-    while ((c = getopt (argc, argv, "itd:")) != -1)
+    while ((c = getopt (argc, argv, "itsd:")) != -1)
 	switch (c) {
 	    case 'i':
 		get_info_flag = 1;
 		break;
 	    case 't':
 		set_time_flag = 1;
+		break;
+	    case 's':
+		get_log_size_flag = 1;
 		break;
 	    case 'd':
 		device_name = optarg;
@@ -276,26 +297,14 @@ int main(int argc, char **argv) {
 	if (update_time(tty))
 	    return -1;
 
+    if (get_log_size_flag)
+	days_in_log = get_log_size(tty);
+
     return 0;
 
     int res = 0;
 
     char buffer[PACKET_SIZE];
-
-    printf("something before dump:\n");
-    package_get_log_size(buffer);
-    res = write_buffer(tty, buffer, buffer);
-    if (res < PACKET_SIZE) {
-	printf("Can't write = %d\n", res);
-	return res;
-    }
-    unsigned int days_in_log = (
-	((unsigned char)buffer[0x02] << 24) +
-	((unsigned char)buffer[0x03] << 16) +
-	((unsigned char)buffer[0x04] << 8) +
-	(unsigned char)buffer[0x05]
-    );
-    printf("-- days in log will be: %08x\n", days_in_log);
 
     int pos = 0;
     unsigned int check = days_in_log;
