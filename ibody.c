@@ -240,6 +240,30 @@ unsigned int get_log_size(int tty) {
     return days_in_log;
 }
 
+int clean_memmory_state(int tty, unsigned int days_in_log, int skip_days) {
+    char buffer[PACKET_SIZE];
+    int res;
+    int pos = 0;
+    unsigned int check = days_in_log;
+    for(pos=0; pos < 32; pos ++) {
+	if (check&1) {
+	    if (pos > skip_days) {
+		package_erase_one_day(buffer, pos);
+		res = write_buffer(tty, buffer, buffer);
+		if (res < PACKET_SIZE) {
+		    printf("?? Can't clean up, package is too short\n");
+		    return res;
+		} else {
+		    printf("cleaned up %d days back\n", pos);
+		}
+	    }
+	}
+	check = check >> 1;
+    }
+    return 0;
+}
+
+
 int dump_memmory_state(int tty, unsigned int days_in_log) {
     char buffer[PACKET_SIZE];
     int res;
@@ -367,10 +391,13 @@ int main(int argc, char **argv) {
     int get_log_size_flag = 0;
     int dump_memory_flag = 0;
     int reboot_flag = 0;
+    int clean_flag = 0;
+    int clean_size = 0;
+    int show_help_flag = 0;
     unsigned int days_in_log = 0;
     opterr = 0;
 
-    while ((c = getopt (argc, argv, "itsrgd:")) != -1)
+    while ((c = getopt (argc, argv, "itsrgd:c:h")) != -1)
 	switch (c) {
 	    // tracker id
 	    case 'i':
@@ -398,8 +425,22 @@ int main(int argc, char **argv) {
 	    case 'd':
 		device_name = optarg;
 		break;
+	    // show help
+	    case 'h':
+		show_help_flag = 1;
+		break;
+	    // cleanup memory
+	    case 'c':
+		clean_size = atoi(optarg);
+		if (clean_size) {
+		    get_log_size_flag = 1;
+		    clean_flag = 1;
+		} else {
+		    fprintf (stderr, "?? Sorry can't clean up by '%s'.\n", optarg);
+		}
+		break;
 	    case '?':
-		if (optopt == 'd')
+		if (optopt == 'd' || optopt == 'c')
 		    fprintf (stderr, "?? Option -%c requires an argument.\n", optopt);
 		else if (isprint (optopt))
 		    fprintf (stderr, "?? Unknown option `-%c'.\n", optopt);
@@ -409,6 +450,21 @@ int main(int argc, char **argv) {
 	    default:
 		abort ();
 	}
+
+    if(show_help_flag) {
+	printf(
+	    "Usage:\n"
+	    " -d device_name\tUse other device instead ttyUSB\n"
+	    " -i\t\tShow tracker id\n"
+	    " -t\t\tUpdate device time\n"
+	    " -s\t\tGet log size\n"
+	    " -g\t\tDump memmory\n"
+	    " -r\t\tReboot device\n"
+	    " -c days_count\tDelete log after days_count back\n"
+	    " -h\t\tShow this help\n"
+	);
+	return 0;
+    }
 
     printf("-- Will be used as tracker device: %s\n", device_name);
 
@@ -450,22 +506,8 @@ int main(int argc, char **argv) {
     if (dump_memory_flag)
 	dump_memmory_state(tty, days_in_log);
 
-    return 0;
-
-    int res = 0;
-
-    char buffer[PACKET_SIZE];
-
-
-    //already tested, use only undestructive operation
-    return 0;
-    printf("cleanup 2 days back\n");
-    package_erase_one_day(buffer, 2);
-    res = write_buffer(tty, buffer, buffer);
-    if (res < PACKET_SIZE) {
-	printf("Can't write = %d\n", res);
-	return res;
-    }
+    if (clean_flag)
+	clean_memmory_state(tty, days_in_log, clean_size);
 
     return 0;
 }
