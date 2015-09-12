@@ -16,12 +16,14 @@
  *
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#include <ctype.h>
 #include <time.h>
 #define PACKET_SIZE 17
 
@@ -66,7 +68,7 @@ int write_buffer(int tty, char* out_buffer, char* in_buffer){
 	dump_buffer(buffer);
 	res = write(tty, buffer, PACKET_SIZE);
 	if (res < 0) {
-	    printf("Can't write = %d\n", res);
+	    printf("?? Can't write, result is %d\n", res);
 	    return res;
 	}
     }
@@ -78,14 +80,14 @@ int write_buffer(int tty, char* out_buffer, char* in_buffer){
 	while (pos < PACKET_SIZE) {
 	    res = read(tty, buffer + pos, PACKET_SIZE - pos);
 	    if (res < 0) {
-		printf("Can't read = %d\n", res);
+		printf("?? Can't read = %d\n", res);
 		return res;
 	    }
 	    pos += res;
 	}
 	dump_buffer(buffer);
 	if (out_buffer && memcmp(out_buffer, buffer, 2) != 0) {
-	    printf("Different operations\n");
+	    printf("?? Different operations\n");
 	}
 	memcpy(in_buffer, buffer, PACKET_SIZE);
 	return pos;
@@ -185,6 +187,24 @@ void package_set_device_clock_value(char* buffer) {
     buffer[0x07] = to_bcd(time_struct.tm_sec);
 }
 
+// get tracker id
+int get_device_info(int tty) {
+    char buffer[PACKET_SIZE];
+    int res;
+
+    printf("tracker id:\n");
+    package_get_device_description(buffer);
+    res = write_buffer(tty, buffer, buffer);
+    if (res < PACKET_SIZE) {
+	printf("?? Can't get device info, wrong package size %d\n", res);
+	return res;
+    }
+    printf("-- id will be:");
+    dump_hex(buffer+0x07, 0x06);
+    printf("\n-- Other values unknown for now.\n");
+    return 0;
+}
+
 // update device clock value
 int update_time(int tty){
     char buffer[PACKET_SIZE];
@@ -193,34 +213,74 @@ int update_time(int tty){
     package_set_device_clock_value(buffer);
     res = write_buffer(tty, buffer, buffer);
     if (res < PACKET_SIZE) {
-	printf("Can't write = %d\n", res);
+	printf("?? Can't update device time, wrong package size %d\n", res);
 	return res;
     }
     return 0;
 }
 
-int main() {
-    int res = 0;
+// get log size as bit mask, return this bit mask, on error return 0
+int get_log_size(int tty) {
 
-    int tty = open("/dev/ttyUSB0", O_RDWR);
+}
+
+int main(int argc, char **argv) {
+    char *device_name = "/dev/ttyUSB0";
+    int c;
+    int set_time_flag = 0;
+    int get_info_flag = 0;
+    opterr = 0;
+
+    while ((c = getopt (argc, argv, "itd:")) != -1)
+	switch (c) {
+	    case 'i':
+		get_info_flag = 1;
+		break;
+	    case 't':
+		set_time_flag = 1;
+		break;
+	    case 'd':
+		device_name = optarg;
+		break;
+	    case '?':
+		if (optopt == 'd')
+		    fprintf (stderr, "?? Option -%c requires an argument.\n", optopt);
+		else if (isprint (optopt))
+		    fprintf (stderr, "?? Unknown option `-%c'.\n", optopt);
+		else
+		    fprintf (stderr, "?? Unknown option character `\\x%x'.\n", optopt);
+		return 1;
+	    default:
+		abort ();
+	}
+
+    printf("-- Will be used as tracker device: %s\n", device_name);
+
+    // open device
+    int tty = open(device_name, O_RDWR);
     if (!tty) {
-	printf("Can't open\n");
-	return res;
+	printf("?? Can't open\n");
+	return -1;
     }
 
+    // set speed options
     set_tty_speed(tty);
 
+    // get tracker id
+    if (get_info_flag)
+	if (get_device_info(tty))
+	    return -1;
+
+    // update time
+    if (set_time_flag)
+	if (update_time(tty))
+	    return -1;
+
+    return 0;
+
+    int res = 0;
+
     char buffer[PACKET_SIZE];
-    printf("tracker id:\n");
-    package_get_device_description(buffer);
-    res = write_buffer(tty, buffer, buffer);
-    if (res < PACKET_SIZE) {
-	printf("Can't write = %d\n", res);
-	return res;
-    }
-    printf("-- id will be:");
-    dump_hex(buffer+0x07, 0x06);
-    printf("\n-- Other values unknown for now.\n");
 
     printf("something before dump:\n");
     package_get_log_size(buffer);
@@ -236,6 +296,7 @@ int main() {
 	(unsigned char)buffer[0x05]
     );
     printf("-- days in log will be: %08x\n", days_in_log);
+
     int pos = 0;
     unsigned int check = days_in_log;
     for(pos=0; pos < 32; pos ++) {
@@ -344,9 +405,6 @@ int main() {
 	printf("Can't write = %d\n", res);
 	return res;
     }
-
-    if (update_time(tty))
-	return -1;
 
     printf("reset:\n");
     package_reboot_device(buffer);
