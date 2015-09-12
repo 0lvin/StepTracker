@@ -240,105 +240,9 @@ unsigned int get_log_size(int tty) {
     return days_in_log;
 }
 
-// reboot device
-int device_reboot(int tty) {
+int dump_memmory_state(int tty, unsigned int days_in_log) {
     char buffer[PACKET_SIZE];
     int res;
-    printf("++ reset:\n");
-    package_reboot_device(buffer);
-    res = write_buffer(tty, buffer, NULL);
-    if (res < PACKET_SIZE) {
-	printf("?? can't reboot device, package is too short\n");
-	return res;
-    }
-    return 0;
-}
-
-
-int main(int argc, char **argv) {
-    char *device_name = "/dev/ttyUSB0";
-    int c;
-    int set_time_flag = 0;
-    int get_info_flag = 0;
-    int get_log_size_flag = 0;
-    int reboot_flag = 0;
-    unsigned int days_in_log = 0;
-    opterr = 0;
-
-    while ((c = getopt (argc, argv, "itsrd:")) != -1)
-	switch (c) {
-	    // tracker id
-	    case 'i':
-		get_info_flag = 1;
-		break;
-	    // update time
-	    case 't':
-		set_time_flag = 1;
-		break;
-	    // get log size
-	    case 's':
-		get_log_size_flag = 1;
-		break;
-	    // reboot device
-	    case 'r':
-		reboot_flag = 1;
-		break;
-	    // change used device
-	    case 'd':
-		device_name = optarg;
-		break;
-	    case '?':
-		if (optopt == 'd')
-		    fprintf (stderr, "?? Option -%c requires an argument.\n", optopt);
-		else if (isprint (optopt))
-		    fprintf (stderr, "?? Unknown option `-%c'.\n", optopt);
-		else
-		    fprintf (stderr, "?? Unknown option character `\\x%x'.\n", optopt);
-		return 1;
-	    default:
-		abort ();
-	}
-
-    printf("-- Will be used as tracker device: %s\n", device_name);
-
-    // open device
-    int tty = open(device_name, O_RDWR);
-    if (!tty) {
-	printf("?? Can't open\n");
-	return -1;
-    }
-
-    // set speed options
-    set_tty_speed(tty);
-
-    // get tracker id
-    if (get_info_flag)
-	if (get_device_info(tty))
-	    return -1;
-
-    // reboot device
-    if (reboot_flag) {
-	if (device_reboot(tty))
-	    return -1;
-	sleep(1);
-	if (get_device_info(tty))
-	    return -1;
-    }
-
-    // update time
-    if (set_time_flag)
-	if (update_time(tty))
-	    return -1;
-
-    // get memory state
-    if (get_log_size_flag)
-	days_in_log = get_log_size(tty);
-    return 0;
-
-    int res = 0;
-
-    char buffer[PACKET_SIZE];
-
     int pos = 0;
     unsigned int check = days_in_log;
     for(pos=0; pos < 32; pos ++) {
@@ -437,6 +341,121 @@ int main(int argc, char **argv) {
 	}
 	check = check >> 1;
     }
+    return 0;
+}
+
+// reboot device
+int device_reboot(int tty) {
+    char buffer[PACKET_SIZE];
+    int res;
+    printf("++ reset:\n");
+    package_reboot_device(buffer);
+    res = write_buffer(tty, buffer, NULL);
+    if (res < PACKET_SIZE) {
+	printf("?? can't reboot device, package is too short\n");
+	return res;
+    }
+    return 0;
+}
+
+
+int main(int argc, char **argv) {
+    char *device_name = "/dev/ttyUSB0";
+    int c;
+    int set_time_flag = 0;
+    int get_info_flag = 0;
+    int get_log_size_flag = 0;
+    int dump_memory_flag = 0;
+    int reboot_flag = 0;
+    unsigned int days_in_log = 0;
+    opterr = 0;
+
+    while ((c = getopt (argc, argv, "itsrgd:")) != -1)
+	switch (c) {
+	    // tracker id
+	    case 'i':
+		get_info_flag = 1;
+		break;
+	    // update time
+	    case 't':
+		set_time_flag = 1;
+		break;
+	    // get log size
+	    case 's':
+		get_log_size_flag = 1;
+		break;
+	    // read device memmory
+	    case 'g':
+		// we must read memory size before this operation
+		get_log_size_flag = 1;
+		dump_memory_flag = 1;
+		break;
+	    // reboot device
+	    case 'r':
+		reboot_flag = 1;
+		break;
+	    // change used device
+	    case 'd':
+		device_name = optarg;
+		break;
+	    case '?':
+		if (optopt == 'd')
+		    fprintf (stderr, "?? Option -%c requires an argument.\n", optopt);
+		else if (isprint (optopt))
+		    fprintf (stderr, "?? Unknown option `-%c'.\n", optopt);
+		else
+		    fprintf (stderr, "?? Unknown option character `\\x%x'.\n", optopt);
+		return 1;
+	    default:
+		abort ();
+	}
+
+    printf("-- Will be used as tracker device: %s\n", device_name);
+
+    // open device
+    int tty = open(device_name, O_RDWR);
+    if (!tty) {
+	printf("?? Can't open\n");
+	return -1;
+    }
+
+    // set speed options
+    set_tty_speed(tty);
+
+    // get tracker id
+    if (get_info_flag)
+	if (get_device_info(tty))
+	    return -1;
+
+    // reboot device
+    if (reboot_flag) {
+	if (device_reboot(tty))
+	    return -1;
+	// in general we have not to do it, but it will check device state
+	sleep(1);
+	if (get_device_info(tty))
+	    return -1;
+    }
+
+    // update time
+    if (set_time_flag)
+	if (update_time(tty))
+	    return -1;
+
+    // get memory state
+    if (get_log_size_flag)
+	days_in_log = get_log_size(tty);
+
+    // dump memmory state
+    if (dump_memory_flag)
+	dump_memmory_state(tty, days_in_log);
+
+    return 0;
+
+    int res = 0;
+
+    char buffer[PACKET_SIZE];
+
 
     //already tested, use only undestructive operation
     return 0;
